@@ -29,25 +29,27 @@ func NewSizedBufferPool(size int, alloc int) (bp *SizedBufferPool) {
 
 // Get gets a Buffer from the SizedBufferPool, or creates a new one if none are
 // available in the pool. Buffers have a pre-allocated capacity.
-func (bp *SizedBufferPool) Get() (b *bytes.Buffer) {
+func (bp *SizedBufferPool) Get() *bytes.Buffer {
 	select {
-	case b = <-bp.c:
-	// reuse existing buffer
+	case b := <-bp.c:
+		// reuse existing buffer
+		return b
 	default:
 		// create new buffer
-		b = bytes.NewBuffer(make([]byte, 0, bp.a))
+		return bytes.NewBuffer(make([]byte, 0, bp.a))
 	}
-	return
 }
 
 // Put returns the given Buffer to the SizedBufferPool.
 func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
+	// If the pool is full, opportunistically throw the buffer away
+	if len(bp.c) == cap(bp.c) {
+		return
+	} 
+	
 	// Release buffers over our maximum capacity and re-create a pre-sized
 	// buffer to replace it.
-	// Note that the cap(b.Bytes()) provides the capacity from the read off-set
-	// only, but as we've called b.Reset() the full capacity of the underlying
-	// byte slice is returned.
-	if cap(b.Bytes()) > bp.a {
+	if b.Cap() > bp.a {
 		b = bytes.NewBuffer(make([]byte, 0, bp.a))
 	} else {
 		b.Reset()
