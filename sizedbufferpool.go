@@ -42,7 +42,7 @@ func (bp *SizedBufferPool) Get() *bytes.Buffer {
 
 // Put returns the given Buffer to the SizedBufferPool.
 func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
-	// If the pool is full, opportunistically throw the buffer away
+	// If the pool is full opportunistically throw the buffer away
 	if len(bp.c) == cap(bp.c) {
 		return
 	} 
