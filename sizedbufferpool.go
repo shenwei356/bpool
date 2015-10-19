@@ -4,6 +4,12 @@ import (
 	"bytes"
 )
 
+const (
+	min_align int = 4 // buffer sizes will be always a multiple of 1<<min_align
+	subs int = 3      // buffer sizes will be a multiple of a>>subs
+	alpha int = 5     // smoothing factor for the exponential moving average [0 100]
+)
+
 // SizedBufferPool implements a pool of bytes.Buffers in the form of a bounded
 // channel. Buffers are pre-allocated to the requested size.
 type SizedBufferPool struct {
@@ -36,12 +42,17 @@ func (bp *SizedBufferPool) Get() *bytes.Buffer {
 		return b
 	default:
 		// create new buffer
-		return bytes.NewBuffer(make([]byte, 0, bp.a))
+		return bp.get()
 	}
 }
 
 // Put returns the given Buffer to the SizedBufferPool.
 func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
+	// Exponential moving average of the buffer sizes (we don't use b.Cap() as-is
+	// because otherwise bp.a could only increase, never decrease)
+	cap := b.Cap()
+	bp.a = (bp.a * (100 - alpha) + (cap - cap>>subs) * alpha) / 100
+	
 	// If the pool is full opportunistically throw the buffer away
 	if len(bp.c) == cap(bp.c) {
 		return
@@ -50,7 +61,7 @@ func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
 	// Release buffers over our maximum capacity and re-create a pre-sized
 	// buffer to replace it.
 	if b.Cap() > bp.a {
-		b = bytes.NewBuffer(make([]byte, 0, bp.a))
+		b = bp.get()
 	} else {
 		b.Reset()
 	}
@@ -59,4 +70,26 @@ func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
 	case bp.c <- b:
 	default: // Discard the buffer if the pool is full.
 	}
+}
+
+func (bp *SizedBufferPool) get() *bytes.Buffer {
+	cap := bp.a
+	align := nextPowerOf2(uint32(cap)) - subs
+	if align < min_align {
+		align = min_align
+	}
+	mask := (1 << align) - 1
+	cap = (cap + mask) & ~mask
+	return bytes.NewBuffer(make([]byte, 0, cap))
+}
+
+func nextPowerOfTwo(v uint32) uint32 {
+    v--
+    v |= v >> 1
+    v |= v >> 2
+    v |= v >> 4
+    v |= v >> 8
+    v |= v >> 16
+    v++
+    return v
 }
