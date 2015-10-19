@@ -42,8 +42,6 @@ func (bp *SizedBufferPool) Get() (b *bytes.Buffer) {
 
 // Put returns the given Buffer to the SizedBufferPool.
 func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
-	b.Reset()
-
 	// Release buffers over our maximum capacity and re-create a pre-sized
 	// buffer to replace it.
 	// Note that the cap(b.Bytes()) provides the capacity from the read off-set
@@ -51,6 +49,8 @@ func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
 	// byte slice is returned.
 	if cap(b.Bytes()) > bp.a {
 		b = bytes.NewBuffer(make([]byte, 0, bp.a))
+	} else {
+		b.Reset()
 	}
 
 	select {
