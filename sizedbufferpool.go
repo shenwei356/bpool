@@ -45,13 +45,9 @@ func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
 	// If the pool is full opportunistically throw the buffer away
 	if len(bp.c) == cap(bp.c) {
 		return
-	} 
-	
-	// Release buffers over our maximum capacity and re-create a pre-sized
-	// buffer to replace it.
-	if b.Cap() > bp.a {
-		b = bytes.NewBuffer(make([]byte, 0, bp.a))
-	} else {
+	}
+
+	if b != nil {
 		b.Reset()
 	}
 
