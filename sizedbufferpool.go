@@ -38,6 +38,7 @@ func (bp *SizedBufferPool) Get() *bytes.Buffer {
 		// create new buffer
 		return bytes.NewBuffer(make([]byte, 0, bp.a))
 	}
+
 }
 
 // Put returns the given Buffer to the SizedBufferPool.
@@ -46,13 +47,20 @@ func (bp *SizedBufferPool) Put(b *bytes.Buffer) {
 	if len(bp.c) == cap(bp.c) {
 		return
 	}
-
+	// Release buffers over our maximum capacity and re-create a pre-sized
+	// buffer to replace it.
+	// if b.Cap() > bp.a {
+	// 	b = bytes.NewBuffer(make([]byte, 0, bp.a))
+	// } else {
+	// 	b.Reset()
+	// }
 	if b != nil {
 		b.Reset()
 	}
 
 	select {
 	case bp.c <- b:
+		return
 	default: // Discard the buffer if the pool is full.
 	}
 }
